@@ -113,15 +113,20 @@ footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-s
 
 <section class="panel on" id="p-imgs">
 <h2>图片合成 GIF</h2>
-<p class="hint">添加图片后，可拖动缩略图或点箭头调整播放顺序；封面可以任选一张，与播放顺序无关。高度留空时按第一张图片的比例自动计算；图片会等比居中放入画面，空白处填白。</p>
+<p class="hint">添加图片后，可拖动缩略图或点箭头调整播放顺序；封面可以任选一张，与播放顺序无关。输入宽或高任意一个，会按所选比例自动算出另一个；尺寸不同的图片可选择留白、裁切或拉伸，并指定对齐位置。</p>
 <label class="drop">选择图片（PNG、JPG、WebP，可多次添加）<input type="file" id="i-file" accept="image/*" multiple></label>
 <div id="i-list" class="thumbs ilist"></div><p class="hint" id="i-tip"></p>
 <div class="grid">
 <label class="f">每帧停留（毫秒）<input type="number" id="i-d" value="1000" min="20" step="10"></label>
-<label class="f">宽度（像素）<input type="number" id="i-w" value="1024" min="40" max="1280"></label>
-<label class="f">高度（留空自动）<input type="number" id="i-h" value="768" min="40" max="1280"></label>
+<label class="f">宽高比例<select id="i-r"><option value="free">自由（不联动）</option><option value="orig">原图比例（第一张）</option><option value="1:1">1:1</option><option value="4:3" selected>4:3</option><option value="3:4">3:4</option><option value="3:2">3:2</option><option value="2:3">2:3</option><option value="5:4">5:4</option><option value="4:5">4:5</option><option value="16:9">16:9</option><option value="9:16">9:16</option><option value="21:9">21:9</option></select></label>
+<label class="f">宽度（像素）<input type="number" id="i-w" value="1024" min="16" max="2048"></label>
+<label class="f">高度（像素）<input type="number" id="i-h" value="768" min="16" max="2048"></label>
+<div style="display:flex;align-items:flex-end"><button type="button" class="go" id="i-calc">按比例计算</button></div>
 <label class="f">播放次数（0 为无限循环）<input type="number" id="i-l" value="0" min="0" max="100"></label>
 <label class="f">封面用法<select id="i-cm"><option value="png" selected>同时下载封面图</option><option value="first">封面放在 GIF 开头</option><option value="none">不单独处理</option></select></label>
+<label class="f">尺寸不同的图片<select id="i-fit"><option value="contain" selected>保留原图比例（完整显示，留白）</option><option value="cover">填满画面（裁掉多余部分）</option><option value="stretch">拉伸（可能变形）</option></select></label>
+<label class="f">对齐位置<select id="i-pos"><option value="c" selected>居中</option><option value="t">靠上</option><option value="b">靠下</option><option value="l">靠左</option><option value="r">靠右</option><option value="tl">左上角</option><option value="tr">右上角</option><option value="bl">左下角</option><option value="br">右下角</option></select></label>
+<label class="f">留白颜色<input type="color" id="i-bg" value="#ffffff" style="height:38px;width:100%;padding:2px"></label>
 </div>
 <button class="go" id="g-imgs">开始合成</button>
 </section>
@@ -333,18 +338,15 @@ $('#g-imgs').onclick=async function(){
   if(files.length<2){say('请至少选择 2 张图片。');return}
   start(this);
   try{
-    const d=Math.max(20,+$('#i-d').value||1000),w=Math.min(1280,+$('#i-w').value||1024);
+    calc();
+    const d=Math.max(20,+$('#i-d').value||1000),w=Math.min(2048,+$('#i-w').value||1024);
     const bmps=[];
     for(const f of files)bmps.push(await createImageBitmap(f));
-    const h=Math.min(1280,+$('#i-h').value||Math.round(bmps[0].height*w/bmps[0].width)),fr=[];
+    const h=Math.min(2048,+$('#i-h').value||Math.round(bmps[0].height*w/bmps[0].width)),fr=[];
     const n=Math.max(0,Math.floor(+$('#i-l').value||0));REP=n?(n-1||-1):0;
-    for(const b of bmps){
-      const c=mk(w,h),x=c.getContext('2d');
-      x.fillStyle='#fff';x.fillRect(0,0,w,h);
-      const s=Math.min(w/b.width,h/b.height),bw=b.width*s,bh=b.height*s;
-      x.drawImage(b,(w-bw)/2,(h-bh)/2,bw,bh);
-      fr.push({c,d});
-    }
+    const md=$('#i-fit').value,k=$('#i-pos').value,bg=$('#i-bg').value;
+    const ax=k.includes('l')?0:k.includes('r')?1:.5,ay=k.includes('t')?0:k.includes('b')?1:.5;
+    for(const b of bmps)fr.push({c:place(b,w,h,md,ax,ay,bg),d});
     const ci=Math.max(0,IMGS.indexOf(COVER)),cm=$('#i-cm').value;
     let cb=null;
     if(cm==='png')cb=await new Promise(ok=>fr[ci].c.toBlob(ok,'image/png'));
@@ -468,7 +470,10 @@ function drawList(){
 }
 function mv(a,b){if(b<0||b>=IMGS.length||a===b)return;IMGS.splice(b,0,IMGS.splice(a,1)[0]);drawList()}
 $('#i-file').addEventListener('change',e=>{
-  [...e.target.files].sort((a,b)=>a.name.localeCompare(b.name,'zh',{numeric:true})).forEach(f=>IMGS.push({f,u:URL.createObjectURL(f)}));
+  [...e.target.files].sort((a,b)=>a.name.localeCompare(b.name,'zh',{numeric:true})).forEach(f=>{
+    const x={f,u:URL.createObjectURL(f)};IMGS.push(x);
+    const im=new Image();im.onload=()=>{x.nw=im.naturalWidth;x.nh=im.naturalHeight;if($('#i-r').value==='orig')calc()};im.src=x.u;
+  });
   e.target.value='';drawList();
 });
 const LST=$('#i-list'),clr=()=>document.querySelectorAll('.it.over').forEach(n=>n.classList.remove('over'));
@@ -485,6 +490,34 @@ LST.addEventListener('dragstart',e=>{const it=e.target.closest('.it');if(it){DRA
 LST.addEventListener('dragover',e=>{const it=e.target.closest('.it');if(it&&DRAG>=0){e.preventDefault();clr();it.classList.add('over')}});
 LST.addEventListener('drop',e=>{e.preventDefault();const it=e.target.closest('.it');if(it&&DRAG>=0)mv(DRAG,+it.dataset.i);DRAG=-1});
 LST.addEventListener('dragend',()=>{DRAG=-1;clr()});
+
+// 比例联动 与 图片摆放
+let LAST='w';
+function ratio(){
+  const v=$('#i-r').value;
+  if(v==='free')return 0;
+  if(v==='orig'){const x=IMGS[0];return x&&x.nw?x.nw/x.nh:0}
+  const[a,b]=v.split(':');return a/b;
+}
+function calc(){
+  const r=ratio();if(!r)return;
+  const W=$('#i-w'),H=$('#i-h');
+  if(LAST==='h'&&+H.value)W.value=Math.round(H.value*r);
+  else if(+W.value)H.value=Math.round(W.value/r);
+}
+$('#i-w').addEventListener('input',e=>{LAST='w';if(e.target.value)calc()});
+$('#i-h').addEventListener('input',e=>{LAST='h';if(e.target.value)calc()});
+$('#i-r').addEventListener('change',()=>{if($('#i-r').value==='orig'&&!ratio())say('请先添加图片，再选择原图比例。');calc()});
+$('#i-calc').onclick=calc;
+function place(b,w,h,mode,ax,ay,bg){
+  const c=mk(w,h),x=c.getContext('2d');
+  x.fillStyle=bg;x.fillRect(0,0,w,h);
+  if(mode==='stretch'){x.drawImage(b,0,0,w,h);return c}
+  const s=mode==='cover'?Math.max(w/b.width,h/b.height):Math.min(w/b.width,h/b.height);
+  const dw=b.width*s,dh=b.height*s;
+  x.drawImage(b,(w-dw)*ax,(h-dh)*ay,dw,dh);
+  return c;
+}
 </script>
 </body>
 </html>
