@@ -41,6 +41,14 @@ label.c{display:flex;align-items:center;gap:8px;margin-bottom:16px}
 .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
 .thumbs a{font-size:12px;color:var(--sub);text-align:center;text-decoration:none}
 .thumbs img{width:100%;display:block;border:1px solid var(--line);border-radius:4px}
+.ilist{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));margin-bottom:8px}
+.it{position:relative;border:1px solid var(--line);border-radius:6px;padding:4px;background:var(--bg);cursor:grab}
+.it.cover{border-color:var(--sun);box-shadow:0 0 0 2px var(--sun)}
+.it.over{outline:2px dashed var(--acc)}
+.it img{height:84px;object-fit:cover;pointer-events:none}
+.it .b{display:flex;gap:3px;margin-top:4px}
+.it button{flex:1;font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:4px;cursor:pointer}
+.tag{position:absolute;top:8px;left:8px;background:var(--sun);color:#0f1f2a;font-size:12px;font-weight:600;padding:0 6px;border-radius:3px}
 header p+p{margin-top:6px;font-size:14px}
 header a,footer a{color:var(--accd)}
 footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-size:13px}
@@ -105,8 +113,9 @@ footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-s
 
 <section class="panel on" id="p-imgs">
 <h2>图片合成 GIF</h2>
-<p class="hint">一次选择多张图片，按文件名顺序合成。高度留空时按第一张图片的比例自动计算；图片会等比居中放入画面，空白处填白。</p>
-<label class="drop">选择多张图片（PNG、JPG、WebP）<input type="file" id="i-file" accept="image/*" multiple></label>
+<p class="hint">添加图片后，可拖动缩略图或点箭头调整播放顺序；第 1 张就是封面（GIF 的第一帧，预览时先显示它）。高度留空时按第一张图片的比例自动计算；图片会等比居中放入画面，空白处填白。</p>
+<label class="drop">选择图片（PNG、JPG、WebP，可多次添加）<input type="file" id="i-file" accept="image/*" multiple></label>
+<div id="i-list" class="thumbs ilist"></div><p class="hint" id="i-tip"></p>
 <div class="grid">
 <label class="f">每帧停留（毫秒）<input type="number" id="i-d" value="1000" min="20" step="10"></label>
 <label class="f">宽度（像素）<input type="number" id="i-w" value="1024" min="40" max="1280"></label>
@@ -319,7 +328,7 @@ $('#g-split').onclick=async function(){
 
 // 图片合成 GIF
 $('#g-imgs').onclick=async function(){
-  const files=[...$('#i-file').files].sort((a,b)=>a.name.localeCompare(b.name,'zh',{numeric:true}));
+  const files=IMGS.map(x=>x.f);
   if(files.length<2){say('请至少选择 2 张图片。');return}
   start(this);
   try{
@@ -443,6 +452,32 @@ tool('#g-cv','#c-file',()=>'converted.'+({gif:'gif',apng:'png',webm:'webm'})[$('
   rec.stop();await stopped;
   return new Blob(ch,{type:'video/webm'});
 });
+
+// 图片合成：排序、封面、删除
+let IMGS=[],DRAG=-1;
+function drawList(){
+  $('#i-list').innerHTML=IMGS.map((x,i)=>'<div class="it'+(i?'':' cover')+'" draggable="true" data-i="'+i+'">'+(i?'':'<span class="tag">封面</span>')+'<img alt="第 '+(i+1)+' 张" src="'+x.u+'"><div class="b"><button data-a="l" aria-label="前移">◀</button><button data-a="r" aria-label="后移">▶</button><button data-a="x" aria-label="删除">✕</button></div>'+(i?'<div class="b"><button data-a="c">设为封面</button></div>':'')+'</div>').join('');
+  $('#i-tip').textContent=IMGS.length?'共 '+IMGS.length+' 张，从第 1 张（封面）开始播放。':'';
+}
+function mv(a,b){if(b<0||b>=IMGS.length||a===b)return;IMGS.splice(b,0,IMGS.splice(a,1)[0]);drawList()}
+$('#i-file').addEventListener('change',e=>{
+  [...e.target.files].sort((a,b)=>a.name.localeCompare(b.name,'zh',{numeric:true})).forEach(f=>IMGS.push({f,u:URL.createObjectURL(f)}));
+  e.target.value='';drawList();
+});
+const LST=$('#i-list'),clr=()=>document.querySelectorAll('.it.over').forEach(n=>n.classList.remove('over'));
+LST.addEventListener('click',e=>{
+  const a=e.target.dataset.a,it=e.target.closest('.it');
+  if(!a||!it)return;
+  const i=+it.dataset.i;
+  if(a==='l')mv(i,i-1);
+  if(a==='r')mv(i,i+1);
+  if(a==='c')mv(i,0);
+  if(a==='x'){URL.revokeObjectURL(IMGS[i].u);IMGS.splice(i,1);drawList()}
+});
+LST.addEventListener('dragstart',e=>{const it=e.target.closest('.it');if(it){DRAG=+it.dataset.i;e.dataTransfer.effectAllowed='move'}});
+LST.addEventListener('dragover',e=>{const it=e.target.closest('.it');if(it&&DRAG>=0){e.preventDefault();clr();it.classList.add('over')}});
+LST.addEventListener('drop',e=>{e.preventDefault();const it=e.target.closest('.it');if(it&&DRAG>=0)mv(DRAG,+it.dataset.i);DRAG=-1});
+LST.addEventListener('dragend',()=>{DRAG=-1;clr()});
 </script>
 </body>
 </html>
