@@ -41,6 +41,8 @@ label.c{display:flex;align-items:center;gap:8px;margin-bottom:16px}
 .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}
 .thumbs a{font-size:12px;color:var(--sub);text-align:center;text-decoration:none}
 .thumbs img{width:100%;display:block;border:1px solid var(--line);border-radius:4px}
+header p+p{margin-top:6px;font-size:14px}
+header a,footer a{color:var(--accd)}
 footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-size:13px}
 @media(prefers-reduced-motion:no-preference){.go{transition:background .15s}.go:hover:not(:disabled){background:var(--accd)}}
 </style>
@@ -50,20 +52,21 @@ footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-s
 <div class="strip" aria-hidden="true"></div>
 <h1>GIF <b>工坊</b></h1>
 <p>免费在线制作和编辑 GIF 动图。所有处理都在你的浏览器里完成，文件不会上传到任何服务器。</p>
+<p>作者博客：<a href="https://q.2030777.xyz/" target="_blank" rel="noopener">梦祈亦博客</a></p>
 </header>
 <main>
 <nav role="tablist" id="tabs">
-<button role="tab" data-t="video" aria-selected="true">视频转 GIF</button>
+<button role="tab" data-t="imgs" aria-selected="true">图片合成 GIF</button>
+<button role="tab" data-t="video" aria-selected="false">视频转 GIF</button>
 <button role="tab" data-t="edit" aria-selected="false">GIF 编辑</button>
 <button role="tab" data-t="split" aria-selected="false">GIF 拆帧</button>
-<button role="tab" data-t="imgs" aria-selected="false">图片合成 GIF</button>
 <button role="tab" data-t="opt" aria-selected="false">优化压缩</button>
 <button role="tab" data-t="txt" aria-selected="false">加文字</button>
 <button role="tab" data-t="fx" aria-selected="false">特效</button>
 <button role="tab" data-t="cv" aria-selected="false">格式转换</button>
 </nav>
 
-<section class="panel on" id="p-video">
+<section class="panel" id="p-video">
 <h2>视频转 GIF</h2>
 <p class="hint">支持浏览器能播放的视频（MP4、WebM、MOV 等）。时长越长、尺寸越大，文件越大。</p>
 <label class="drop">选择视频文件<input type="file" id="v-file" accept="video/*"></label>
@@ -100,7 +103,7 @@ footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-s
 <button class="go" id="g-split">开始拆帧</button>
 </section>
 
-<section class="panel" id="p-imgs">
+<section class="panel on" id="p-imgs">
 <h2>图片合成 GIF</h2>
 <p class="hint">一次选择多张图片，按文件名顺序合成。高度留空时按第一张图片的比例自动计算；图片会等比居中放入画面，空白处填白。</p>
 <label class="drop">选择多张图片（PNG、JPG、WebP）<input type="file" id="i-file" accept="image/*" multiple></label>
@@ -170,7 +173,7 @@ footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-s
 <p id="msg"></p>
 </div>
 </main>
-<footer>© 2026 梦祈亦 · 本地处理，保护隐私。受限于浏览器内存，请避免处理超大文件。滤镜需浏览器支持 Canvas filter。</footer>
+<footer>© 2026 梦祈亦 · <a href="https://q.2030777.xyz/" target="_blank" rel="noopener">梦祈亦博客</a><br>本地处理，保护隐私。受限于浏览器内存，请避免处理超大文件。滤镜需浏览器支持 Canvas filter。</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gifuct-js@2.1.2/dist/gifuct-js.min.js"></script>
