@@ -113,7 +113,7 @@ footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-s
 
 <section class="panel on" id="p-imgs">
 <h2>图片合成 GIF</h2>
-<p class="hint">添加图片后，可拖动缩略图或点箭头调整播放顺序；第 1 张就是封面（GIF 的第一帧，预览时先显示它）。高度留空时按第一张图片的比例自动计算；图片会等比居中放入画面，空白处填白。</p>
+<p class="hint">添加图片后，可拖动缩略图或点箭头调整播放顺序；封面可以任选一张，与播放顺序无关。高度留空时按第一张图片的比例自动计算；图片会等比居中放入画面，空白处填白。</p>
 <label class="drop">选择图片（PNG、JPG、WebP，可多次添加）<input type="file" id="i-file" accept="image/*" multiple></label>
 <div id="i-list" class="thumbs ilist"></div><p class="hint" id="i-tip"></p>
 <div class="grid">
@@ -121,6 +121,7 @@ footer{max-width:920px;margin:0 auto;padding:0 20px 40px;color:var(--sub);font-s
 <label class="f">宽度（像素）<input type="number" id="i-w" value="1024" min="40" max="1280"></label>
 <label class="f">高度（留空自动）<input type="number" id="i-h" value="768" min="40" max="1280"></label>
 <label class="f">播放次数（0 为无限循环）<input type="number" id="i-l" value="0" min="0" max="100"></label>
+<label class="f">封面用法<select id="i-cm"><option value="png" selected>同时下载封面图</option><option value="first">封面放在 GIF 开头</option><option value="none">不单独处理</option></select></label>
 </div>
 <button class="go" id="g-imgs">开始合成</button>
 </section>
@@ -344,7 +345,12 @@ $('#g-imgs').onclick=async function(){
       x.drawImage(b,(w-bw)/2,(h-bh)/2,bw,bh);
       fr.push({c,d});
     }
+    const ci=Math.max(0,IMGS.indexOf(COVER)),cm=$('#i-cm').value;
+    let cb=null;
+    if(cm==='png')cb=await new Promise(ok=>fr[ci].c.toBlob(ok,'image/png'));
+    if(cm==='first')fr.unshift({c:fr[ci].c,d});
     const blob=await encode(fr,w,h,10);REP=0;showGif(blob,'images.gif');
+    if(cb){const u=URL.createObjectURL(cb);$('#res').insertAdjacentHTML('beforeend','<a class="dl" download="cover.png" href="'+u+'">下载封面图（PNG）</a>')}
   }catch(e){fail(e)}
 };
 
@@ -454,10 +460,11 @@ tool('#g-cv','#c-file',()=>'converted.'+({gif:'gif',apng:'png',webm:'webm'})[$('
 });
 
 // 图片合成：排序、封面、删除
-let IMGS=[],DRAG=-1;
+let IMGS=[],DRAG=-1,COVER=null;
 function drawList(){
-  $('#i-list').innerHTML=IMGS.map((x,i)=>'<div class="it'+(i?'':' cover')+'" draggable="true" data-i="'+i+'">'+(i?'':'<span class="tag">封面</span>')+'<img alt="第 '+(i+1)+' 张" src="'+x.u+'"><div class="b"><button data-a="l" aria-label="前移">◀</button><button data-a="r" aria-label="后移">▶</button><button data-a="x" aria-label="删除">✕</button></div>'+(i?'<div class="b"><button data-a="c">设为封面</button></div>':'')+'</div>').join('');
-  $('#i-tip').textContent=IMGS.length?'共 '+IMGS.length+' 张，从第 1 张（封面）开始播放。':'';
+  if(!IMGS.includes(COVER))COVER=IMGS[0]||null;
+  $('#i-list').innerHTML=IMGS.map((x,i)=>'<div class="it'+(x===COVER?' cover':'')+'" draggable="true" data-i="'+i+'">'+(x===COVER?'<span class="tag">封面</span>':'')+'<img alt="第 '+(i+1)+' 张" src="'+x.u+'"><div class="b"><button data-a="l" aria-label="前移">◀</button><button data-a="r" aria-label="后移">▶</button><button data-a="x" aria-label="删除">✕</button></div>'+(x===COVER?'':'<div class="b"><button data-a="c">设为封面</button></div>')+'</div>').join('');
+  $('#i-tip').textContent=IMGS.length?'共 '+IMGS.length+' 张，封面是第 '+(IMGS.indexOf(COVER)+1)+' 张，播放顺序以排列顺序为准。':'';
 }
 function mv(a,b){if(b<0||b>=IMGS.length||a===b)return;IMGS.splice(b,0,IMGS.splice(a,1)[0]);drawList()}
 $('#i-file').addEventListener('change',e=>{
@@ -471,7 +478,7 @@ LST.addEventListener('click',e=>{
   const i=+it.dataset.i;
   if(a==='l')mv(i,i-1);
   if(a==='r')mv(i,i+1);
-  if(a==='c')mv(i,0);
+  if(a==='c'){COVER=IMGS[i];drawList()}
   if(a==='x'){URL.revokeObjectURL(IMGS[i].u);IMGS.splice(i,1);drawList()}
 });
 LST.addEventListener('dragstart',e=>{const it=e.target.closest('.it');if(it){DRAG=+it.dataset.i;e.dataTransfer.effectAllowed='move'}});
